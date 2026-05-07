@@ -1,0 +1,180 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String
+  displayName  String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  questionSets QuestionSet[]
+  folders      Folder[]
+  gameSessions GameSession[]
+  favorites    Favorite[]
+}
+
+model QuestionSet {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  coverImage  String?
+  isPublic    Boolean  @default(true)
+  playCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  folderId String?
+  folder   Folder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  questions    Question[]
+  gameSessions GameSession[]
+  favorites    Favorite[]
+
+  @@index([authorId])
+  @@index([isPublic, playCount])
+  @@index([title])
+}
+
+model Question {
+  id        String  @id @default(cuid())
+  text      String
+  imageUrl  String?
+  timeLimit Int     @default(20)
+  points    Int     @default(100)
+  order     Int     @default(0)
+
+  questionSetId String
+  questionSet   QuestionSet @relation(fields: [questionSetId], references: [id], onDelete: Cascade)
+
+  answers       Answer[]
+  playerAnswers PlayerAnswer[]
+
+  @@index([questionSetId])
+}
+
+model Answer {
+  id        String  @id @default(cuid())
+  text      String
+  isCorrect Boolean @default(false)
+  order     Int     @default(0)
+
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+}
+
+model Folder {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("#6366f1")
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  questionSets QuestionSet[]
+
+  @@index([userId])
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  questionSetId String
+  questionSet   QuestionSet @relation(fields: [questionSetId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionSetId])
+}
+
+model GameSession {
+  id           String     @id @default(cuid())
+  gameCode     String     @unique
+  gameMode     GameMode
+  status       GameStatus @default(WAITING)
+  maxPlayers   Int        @default(150)
+  currentIndex Int        @default(0)
+
+  isHomework Boolean   @default(false)
+  deadline   DateTime?
+
+  startedAt DateTime?
+  endedAt   DateTime?
+  createdAt DateTime  @default(now())
+
+  hostId String
+  host   User   @relation(fields: [hostId], references: [id], onDelete: Cascade)
+
+  questionSetId String
+  questionSet   QuestionSet @relation(fields: [questionSetId], references: [id], onDelete: Cascade)
+
+  players GamePlayer[]
+
+  @@index([gameCode])
+  @@index([hostId])
+  @@index([status])
+}
+
+enum GameMode {
+  CLASSIC
+  RACE
+  BATTLE_ROYALE
+  CHALLENGE
+}
+
+enum GameStatus {
+  WAITING
+  IN_PROGRESS
+  FINISHED
+  CANCELLED
+}
+
+model GamePlayer {
+  id           String   @id @default(cuid())
+  nickname     String
+  score        Int      @default(0)
+  isEliminated Boolean  @default(false)
+  joinedAt     DateTime @default(now())
+
+  userId        String?
+  gameSessionId String
+  gameSession   GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
+
+  answers PlayerAnswer[]
+
+  @@index([gameSessionId])
+  @@unique([gameSessionId, nickname])
+}
+
+model PlayerAnswer {
+  id             String   @id @default(cuid())
+  isCorrect      Boolean
+  answeredAt     DateTime @default(now())
+  timeTaken      Float
+  selectedAnswer String?
+
+  playerId String
+  player   GamePlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, questionId])
+  @@index([playerId])
+}
