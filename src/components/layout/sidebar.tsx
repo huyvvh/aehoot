@@ -13,6 +13,7 @@ import {
   PenSquare,
   History,
   Settings,
+  LogIn,
 } from "lucide-react";
 
 const navItems = [
@@ -44,14 +45,21 @@ export function Sidebar() {
           </Link>
         </div>
 
-        {/* Host/Play Button */}
-        <div className="mb-4 px-1">
+        {/* Host/Play Buttons */}
+        <div className="mb-4 px-1 flex flex-col gap-2">
           <Link
             href="/dashboard/host"
-            className="flex items-center justify-center gap-2 w-full py-3.5 bg-[#4ecdc4] hover:bg-[#45b7af] text-white font-extrabold text-xl rounded-xl transition-colors shadow-[0_5px_0_#38a89d,0_6px_10px_rgba(0,0,0,0.15)]"
+            className="flex items-center justify-center gap-2 w-full py-3 bg-[#4ecdc4] hover:bg-[#45b7af] text-white font-extrabold text-lg rounded-xl transition-colors shadow-[0_5px_0_#38a89d,0_6px_10px_rgba(0,0,0,0.15)]"
           >
-            <Play className="h-6 w-6 fill-white" />
-            Play
+            <Play className="h-5 w-5 fill-white" />
+            Host
+          </Link>
+          <Link
+            href="/play"
+            className="flex items-center justify-center gap-2 w-full py-2.5 bg-white/15 hover:bg-white/25 text-white font-bold text-base rounded-xl transition-colors border border-white/20"
+          >
+            <LogIn className="h-4 w-4" />
+            Join Game
           </Link>
         </div>
 

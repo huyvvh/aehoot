@@ -21,6 +21,7 @@ export function setupSocketHandlers(io: Server) {
         players: gameManager.getPlayerList(code).map((p) => ({
           nickname: p.nickname,
           score: p.score,
+          avatarId: p.avatarId,
         })),
       });
     });
@@ -98,8 +99,8 @@ export function setupSocketHandlers(io: Server) {
     // ── PLAYER: join ────────────────────────────────────────────────────
     socket.on(
       "player:join",
-      ({ code, nickname }: { code: string; nickname: string }) => {
-        const player = gameManager.addPlayer(code, socket.id, nickname);
+      ({ code, nickname, avatarId }: { code: string; nickname: string; avatarId?: string }) => {
+        const player = gameManager.addPlayer(code, socket.id, nickname, avatarId);
         if (!player) {
           socket.emit(
             "game:error",
@@ -112,11 +113,12 @@ export function setupSocketHandlers(io: Server) {
         socket.data.gameCode = code;
         socket.data.isHost = false;
 
-        socket.emit("player:joined", { nickname: player.nickname });
+        socket.emit("player:joined", { nickname: player.nickname, avatarId: player.avatarId });
         io.to(`game:${code}`).emit("game:player-joined", {
           players: gameManager.getPlayerList(code).map((p) => ({
             nickname: p.nickname,
             score: p.score,
+            avatarId: p.avatarId,
           })),
         });
       }
@@ -162,6 +164,7 @@ export function setupSocketHandlers(io: Server) {
           players: gameManager.getPlayerList(code).map((p) => ({
             nickname: p.nickname,
             score: p.score,
+            avatarId: p.avatarId,
           })),
         });
       }

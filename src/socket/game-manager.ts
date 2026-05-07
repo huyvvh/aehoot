@@ -9,11 +9,13 @@ export interface PlayerAnswerRecord {
 export interface GamePlayer {
   socketId: string;
   nickname: string;
+  avatarId: string;
   score: number;
   streak: number;
   isEliminated: boolean;
   answers: PlayerAnswerRecord[];
 }
+
 
 export interface GameQuestion {
   id: string;
@@ -69,7 +71,7 @@ class GameManager {
     this.games.delete(code);
   }
 
-  addPlayer(code: string, socketId: string, nickname: string): GamePlayer | null {
+  addPlayer(code: string, socketId: string, nickname: string, avatarId = "cat"): GamePlayer | null {
     const game = this.games.get(code);
     if (!game || game.status !== "waiting") return null;
 
@@ -81,6 +83,7 @@ class GameManager {
     const player: GamePlayer = {
       socketId,
       nickname,
+      avatarId,
       score: 0,
       streak: 0,
       isEliminated: false,
@@ -176,12 +179,12 @@ class GameManager {
     return game.answeredPlayers.size >= activePlayers.length;
   }
 
-  getLeaderboard(code: string): { nickname: string; score: number }[] {
+  getLeaderboard(code: string): { nickname: string; score: number; avatarId: string }[] {
     const game = this.games.get(code);
     if (!game) return [];
     return Array.from(game.players.values())
       .sort((a, b) => b.score - a.score)
-      .map((p) => ({ nickname: p.nickname, score: p.score }));
+      .map((p) => ({ nickname: p.nickname, score: p.score, avatarId: p.avatarId }));
   }
 
   getQuestionResults(code: string) {
