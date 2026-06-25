@@ -97,6 +97,36 @@ export const publishGenerationSchema = z.object({
   folderId: z.string().optional().nullable(),
 });
 
+// ── Phiên bản hóa quy định ───────────────────────────────────
+
+export const updateDocumentSchema = z.object({
+  regulationCode: z.string().max(200).optional().nullable(),
+  effectiveDate: z.string().datetime().optional().nullable(),
+});
+
+export const supersedeDocumentSchema = z.object({
+  // Tài liệu MỚI thay thế tài liệu hiện tại.
+  supersededById: z.string().min(1, "Thiếu tài liệu thay thế"),
+});
+
+// ── Agent giải thích đáp án ──────────────────────────────────
+
+export const createExplanationSchema = z.object({
+  questionSetId: z.string().min(1, "Thiếu questionSetId"),
+});
+
+// Lưu nội dung giải thích đã chỉnh trong màn review.
+export const updateExplanationsSchema = z.object({
+  explanations: z
+    .array(
+      z.object({
+        questionId: z.string().min(1),
+        body: z.string().min(1, "Giải thích không được trống"),
+      })
+    )
+    .min(1, "Không có nội dung để cập nhật"),
+});
+
 export const createGameSchema = z.object({
   questionSetId: z.string().min(1),
   gameMode: z.enum(["CLASSIC", "RACE", "BATTLE_ROYALE", "CHALLENGE"]),
@@ -114,3 +144,7 @@ export type CreateGenerationInput = z.infer<typeof createGenerationSchema>;
 export type DraftQuestionInput = z.infer<typeof draftQuestionSchema>;
 export type UpdateDraftInput = z.infer<typeof updateDraftSchema>;
 export type PublishGenerationInput = z.infer<typeof publishGenerationSchema>;
+export type CreateExplanationInput = z.infer<typeof createExplanationSchema>;
+export type UpdateExplanationsInput = z.infer<typeof updateExplanationsSchema>;
+export type UpdateDocumentInput = z.infer<typeof updateDocumentSchema>;
+export type SupersedeDocumentInput = z.infer<typeof supersedeDocumentSchema>;

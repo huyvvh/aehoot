@@ -17,6 +17,11 @@ export interface GamePlayer {
 }
 
 
+export interface QuestionExplanationData {
+  body: string;
+  citations: { quote: string }[];
+}
+
 export interface GameQuestion {
   id: string;
   text: string;
@@ -24,6 +29,8 @@ export interface GameQuestion {
   timeLimit: number;
   points: number;
   answers: { id: string; text: string; isCorrect: boolean }[];
+  /** Giải thích đã duyệt (CURRENT) để hiện sau khi lộ đáp án; null nếu chưa có. */
+  explanation: QuestionExplanationData | null;
 }
 
 export interface GameState {
@@ -197,6 +204,7 @@ class GameManager {
       correctAnswerId: question.answers.find((a) => a.isCorrect)?.id,
       totalPlayers: game.players.size,
       answeredCount: game.answeredPlayers.size,
+      explanation: question.explanation ?? null,
     };
   }
 }

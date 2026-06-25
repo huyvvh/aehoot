@@ -18,6 +18,7 @@ import {
   Menu,
   History,
   Settings,
+  FileText,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/dashboard/sets", label: "My Sets", icon: BookOpen },
   { href: "/dashboard/folders", label: "Folders", icon: FolderOpen },
   { href: "/dashboard/favorites", label: "Favorites", icon: Heart },
+  { href: "/dashboard/documents", label: "Tài liệu", icon: FileText },
   { href: "/dashboard/games", label: "History", icon: History },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];

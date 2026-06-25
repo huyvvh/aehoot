@@ -44,7 +44,10 @@ export function setupSocketHandlers(io: Server) {
             questionSet: {
               include: {
                 questions: {
-                  include: { answers: { orderBy: { order: "asc" } } },
+                  include: {
+                    answers: { orderBy: { order: "asc" } },
+                    explanation: { include: { citations: true } },
+                  },
                   orderBy: { order: "asc" },
                 },
               },
@@ -71,6 +74,16 @@ export function setupSocketHandlers(io: Server) {
             text: a.text,
             isCorrect: a.isCorrect,
           })),
+          // Chỉ lộ giải thích đã được duyệt (CURRENT) trong game.
+          explanation:
+            q.explanation && q.explanation.status === "CURRENT"
+              ? {
+                  body: q.explanation.body,
+                  citations: q.explanation.citations.map((c) => ({
+                    quote: c.quote,
+                  })),
+                }
+              : null,
         }));
 
         const started = gameManager.startGame(code, questions);

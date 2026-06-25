@@ -12,6 +12,7 @@ import {
   Lock,
   Check,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 
 interface Answer {
@@ -205,6 +206,15 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
                   <Heart className={`h-4 w-4 ${favorited ? "fill-white" : ""}`} />
                   {favorited ? "Đã thích" : "Yêu thích"}
                 </button>
+              )}
+              {set.isOwner && (
+                <Link
+                  href={`/dashboard/sets/${set.id}/explanations`}
+                  className="flex items-center gap-1.5 px-4 py-2.5 bg-[#f3eefe] hover:bg-[#e9dffb] text-[#7c5cbf] font-bold text-sm rounded-xl transition-colors shadow-[0_3px_0_#d6c7f0]"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Giải thích AI
+                </Link>
               )}
               {set.isOwner && (
                 <Link

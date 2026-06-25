@@ -14,6 +14,7 @@ import {
   History,
   Settings,
   LogIn,
+  FileText,
 } from "lucide-react";
 
 const navItems = [
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/dashboard/sets", label: "My Sets", icon: BookOpen },
   { href: "/dashboard/folders", label: "Folders", icon: FolderOpen },
   { href: "/dashboard/favorites", label: "Favorites", icon: Heart },
+  { href: "/dashboard/documents", label: "Tài liệu", icon: FileText },
 ];
 
 const bottomIcons = [

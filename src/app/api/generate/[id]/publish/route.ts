@@ -61,6 +61,9 @@ export async function POST(
             timeLimit: q.timeLimit,
             points: q.points,
             order: qi,
+            // Lưu truy vết nguồn để Agent giải thích đối chiếu (grounding) về sau.
+            sourceQuote: q.sourceQuote || null,
+            sourceChunkId: q.chunkId || null,
             answers: {
               create: q.answers.map((a, ai) => ({
                 text: a.text,

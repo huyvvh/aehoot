@@ -3,6 +3,7 @@
 import { use, useEffect, useState, useCallback } from "react";
 import { useSocket } from "@/hooks/use-socket";
 import { AVATARS, AvatarId } from "@/lib/avatars";
+import { playTick, playCorrect, playWrong, playQuestionStart } from "@/lib/sounds";
 import { Trophy, Clock, Check, X, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -67,6 +68,10 @@ export default function PlayerGamePage({
     { nickname: string; score: number; avatarId: string }[]
   >([]);
   const [correctAnswerId, setCorrectAnswerId] = useState<string | null>(null);
+  const [explanation, setExplanation] = useState<{
+    body: string;
+    citations: { quote: string }[];
+  } | null>(null);
 
   useEffect(() => {
     if (phase === "join" || phase === "avatar" || phase === "finished") return;
@@ -108,18 +113,28 @@ export default function PlayerGamePage({
       setSelectedAnswer(null);
       setAnswerResult(null);
       setCorrectAnswerId(null);
+      setExplanation(null);
+      playQuestionStart();
     });
 
     socket.on("game:answer-result", (result: AnswerResult) => {
       setAnswerResult(result);
       setTotalScore((s) => s + result.points);
       setPhase("answered");
+      if (result.correct) playCorrect(); else playWrong();
     });
 
-    socket.on("game:question-ended", (data: { correctAnswerId: string }) => {
-      setCorrectAnswerId(data.correctAnswerId);
-      setPhase("result");
-    });
+    socket.on(
+      "game:question-ended",
+      (data: {
+        correctAnswerId: string;
+        explanation?: { body: string; citations: { quote: string }[] } | null;
+      }) => {
+        setCorrectAnswerId(data.correctAnswerId);
+        setExplanation(data.explanation ?? null);
+        setPhase("result");
+      }
+    );
 
     socket.on(
       "game:ended",
@@ -150,9 +165,11 @@ export default function PlayerGamePage({
 
   useEffect(() => {
     if (phase !== "question" || timeLeft <= 0) return;
+    playTick(timeLeft);
     const timer = setInterval(() => {
       setTimeLeft((t) => {
         if (t <= 1) { clearInterval(timer); return 0; }
+        playTick(t - 1);
         return t - 1;
       });
     }, 1000);
@@ -300,39 +317,50 @@ export default function PlayerGamePage({
     );
   }
 
-  // WAITING — show player cards
+  // WAITING — show player cards with varying sizes
   if (phase === "waiting") {
+    const PLAYER_CARD_SIZES = [
+      { card: "p-3 rounded-2xl", avatar: "w-14 h-14", img: 48, text: "text-sm" },
+      { card: "p-2 rounded-xl",  avatar: "w-10 h-10", img: 32, text: "text-xs" },
+      { card: "p-4 rounded-2xl", avatar: "w-16 h-16", img: 56, text: "text-sm" },
+      { card: "p-2 rounded-xl",  avatar: "w-11 h-11", img: 36, text: "text-xs" },
+      { card: "p-3 rounded-2xl", avatar: "w-12 h-12", img: 40, text: "text-xs" },
+    ];
+
     return (
       <div
         className="min-h-screen flex flex-col px-4 py-8"
         style={{ background: BG_DARK }}
       >
-        <div className="flex flex-col items-center mb-8">
+        <div className="flex flex-col items-center mb-6">
           <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mb-4" />
           <h2 className="text-2xl font-black text-white mb-1">You&apos;re in!</h2>
           <p className="text-white/60 font-bold text-center text-sm">Đang chờ host bắt đầu...</p>
         </div>
 
         {waitingPlayers.length > 0 && (
-          <div className="max-w-md w-full mx-auto">
+          <div className="w-full max-w-sm mx-auto">
             <p className="text-white/40 text-xs font-bold uppercase tracking-wider text-center mb-3">
               {waitingPlayers.length} người đã tham gia
             </p>
-            <div className="grid grid-cols-3 gap-3">
-              {waitingPlayers.map((p) => {
+            <div className="flex flex-wrap justify-center gap-2">
+              {waitingPlayers.map((p, idx) => {
                 const avatar = AVATARS.find((a) => a.id === p.avatarId) ?? AVATARS[0];
                 const isMe = p.nickname.toLowerCase() === nickname.toLowerCase();
+                const sz = PLAYER_CARD_SIZES[idx % PLAYER_CARD_SIZES.length];
+                const rotate = (idx % 5 - 2) * 2;
                 return (
                   <div
                     key={p.nickname}
-                    className={`flex flex-col items-center gap-2 rounded-2xl p-3 transition-all ${
-                      isMe ? "bg-white/30 ring-2 ring-white" : "bg-white/10"
+                    className={`flex flex-col items-center gap-1.5 ${sz.card} ${
+                      isMe ? "bg-white/30 ring-2 ring-white shadow-lg" : "bg-white/10"
                     }`}
+                    style={{ transform: `rotate(${rotate}deg)` }}
                   >
-                    <div className="w-12 h-12 rounded-full bg-white/20 p-1.5">
-                      <Image src={avatar.src} alt={avatar.name} width={40} height={40} className="w-full h-full object-contain" />
+                    <div className={`${sz.avatar} rounded-full bg-white/20 p-1.5`}>
+                      <Image src={avatar.src} alt={avatar.name} width={sz.img} height={sz.img} className="w-full h-full object-contain" />
                     </div>
-                    <span className={`text-xs font-bold truncate w-full text-center ${isMe ? "text-white" : "text-white/70"}`}>
+                    <span className={`${sz.text} font-bold truncate max-w-[80px] text-center ${isMe ? "text-white" : "text-white/70"}`}>
                       {p.nickname}
                     </span>
                   </div>
@@ -460,6 +488,29 @@ export default function PlayerGamePage({
             </div>
           ))}
         </div>
+
+        {explanation && (
+          <div className="w-full max-w-sm mt-6 rounded-xl bg-white/10 p-4 text-left">
+            <p className="text-white font-black text-sm mb-2">💡 Vì sao?</p>
+            <p className="text-white/85 text-sm leading-relaxed whitespace-pre-line">
+              {explanation.body}
+            </p>
+            {explanation.citations.length > 0 && (
+              <div className="mt-3 border-t border-white/15 pt-3 space-y-2">
+                <p className="text-white/50 text-xs font-bold">Nguồn trích dẫn</p>
+                {explanation.citations.map((c, i) => (
+                  <p
+                    key={i}
+                    className="text-white/60 text-xs italic border-l-2 border-white/30 pl-2"
+                  >
+                    “{c.quote}”
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <p className="text-white/50 font-bold mt-8 text-sm animate-pulse">
           Đang chờ câu tiếp theo...
         </p>

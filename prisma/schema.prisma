@@ -23,6 +23,7 @@ model User {
 
   sourceDocuments SourceDocument[]
   generationJobs  GenerationJob[]
+  explanationJobs ExplanationJob[]
 }
 
 model QuestionSet {
@@ -45,6 +46,8 @@ model QuestionSet {
   gameSessions GameSession[]
   favorites    Favorite[]
 
+  explanationJobs ExplanationJob[]
+
   @@index([authorId])
   @@index([isPublic, playCount])
   @@index([title])
@@ -58,11 +61,16 @@ model Question {
   points    Int     @default(100)
   order     Int     @default(0)
 
+  // Truy vết về tài liệu nguồn (lưu khi publish từ AI) để Agent giải thích đối chiếu.
+  sourceQuote   String?
+  sourceChunkId String?
+
   questionSetId String
   questionSet   QuestionSet @relation(fields: [questionSetId], references: [id], onDelete: Cascade)
 
   answers       Answer[]
   playerAnswers PlayerAnswer[]
+  explanation   QuestionExplanation?
 
   @@index([questionSetId])
 }
@@ -194,6 +202,16 @@ model SourceDocument {
   status     DocStatus @default(UPLOADED)
   createdAt  DateTime  @default(now())
 
+  // Phiên bản hóa quy định ("hiện hành"): mã văn bản, ngày hiệu lực, trạng thái.
+  regulationCode String?
+  effectiveDate  DateTime?
+  regStatus      RegStatus @default(EFFECTIVE)
+
+  // Bản mới thay thế bản này (self-relation).
+  supersededById String?
+  supersededBy   SourceDocument?  @relation("Supersession", fields: [supersededById], references: [id], onDelete: SetNull)
+  supersedes     SourceDocument[] @relation("Supersession")
+
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -201,6 +219,12 @@ model SourceDocument {
   jobs   GenerationJob[]
 
   @@index([userId])
+  @@index([regStatus])
+}
+
+enum RegStatus {
+  EFFECTIVE  // đang hiệu lực
+  SUPERSEDED // đã bị bản mới thay thế
 }
 
 model DocumentChunk {
@@ -249,4 +273,66 @@ enum JobStatus {
   REVIEW
   DONE
   FAILED
+}
+
+// ── Agent giải thích & cập nhật kiến thức ────────────────────
+// Sinh giải thích đáp án có trích dẫn nguồn → review bắt buộc → CURRENT.
+
+model QuestionExplanation {
+  id                String            @id @default(cuid())
+  body              String            // Giải thích: vì sao đáp án đúng / các phương án khác sai
+  status            ExplanationStatus @default(DRAFT)
+  grounded          Boolean           @default(false)
+  basedOnDocumentId String?           // Bản tài liệu/quy định làm căn cứ (phục vụ phiên bản hóa ở P3)
+  reviewedAt        DateTime?
+  reviewedById      String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  questionId String   @unique
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  citations ExplanationCitation[]
+
+  @@index([status])
+}
+
+model ExplanationCitation {
+  id            String  @id @default(cuid())
+  quote         String  // Trích dẫn nguyên văn làm căn cứ
+  chunkId       String? // DocumentChunk nguồn (nếu có)
+  documentId    String?
+
+  explanationId String
+  explanation   QuestionExplanation @relation(fields: [explanationId], references: [id], onDelete: Cascade)
+
+  @@index([explanationId])
+}
+
+enum ExplanationStatus {
+  DRAFT        // vừa sinh, chưa duyệt
+  NEEDS_REVIEW // không grounded / thiếu nguồn → cần người soát kỹ
+  CURRENT      // đã duyệt, đang hiệu lực
+  STALE        // quy định/thị trường đổi → cần cập nhật (P3+)
+}
+
+model ExplanationJob {
+  id        String    @id @default(cuid())
+  status    JobStatus @default(QUEUED)
+  progress  Int       @default(0)
+  total     Int       @default(0)
+  done      Int       @default(0)
+  error     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  questionSetId String
+  questionSet   QuestionSet @relation(fields: [questionSetId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([questionSetId])
+  @@index([status])
 }
