@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { PenSquare, Search } from "lucide-react";
+import { PenSquare, Search, Sparkles } from "lucide-react";
 import { SetCard, SetCardData } from "@/components/sets/set-card";
 import { SetCardSkeleton } from "@/components/ui/skeleton";
 
@@ -55,17 +55,24 @@ export default function MySetsPage() {
               Create a Set
             </Link>
             <Link
-              href="/dashboard/discover"
+              href="/dashboard/sets/generate"
               className="flex items-center gap-2 px-8 py-3.5 bg-[#4ecdc4] hover:bg-[#45b7af] text-white font-extrabold text-lg rounded-lg transition-colors shadow-[0_4px_0_#38a89d]"
             >
-              <Search className="h-5 w-5" />
-              Discover Sets
+              <Sparkles className="h-5 w-5" />
+              Sinh đề bằng AI
             </Link>
           </div>
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-3">
+            <Link
+              href="/dashboard/sets/generate"
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#4ecdc4] hover:bg-[#45b7af] text-white font-extrabold rounded-lg transition-colors shadow-[0_4px_0_#38a89d]"
+            >
+              <Sparkles className="h-4 w-4" />
+              Sinh đề bằng AI
+            </Link>
             <Link
               href="/dashboard/sets/new"
               className="flex items-center gap-2 px-5 py-2.5 bg-[#7c5cbf] hover:bg-[#6b4da8] text-white font-extrabold rounded-lg transition-colors shadow-[0_4px_0_#5e3d9e]"

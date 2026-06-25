@@ -19,7 +19,7 @@ export async function PUT(
   const body = await req.json();
   const parsed = folderSchema.safeParse(body);
   if (!parsed.success) {
-    return apiError(parsed.error.errors[0].message, "VALIDATION_ERROR");
+    return apiError(parsed.error.issues[0].message, "VALIDATION_ERROR");
   }
 
   const folder = await prisma.folder.update({

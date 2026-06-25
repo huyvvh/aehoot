@@ -7,7 +7,8 @@
     "build": "prisma generate && next build",
     "start": "NODE_ENV=production tsx server.ts",
     "migrate": "prisma migrate deploy",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --import tsx --test src/lib/ai/ai.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -18,11 +19,14 @@
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.10.0",
     "clsx": "^2.1.1",
+    "exceljs": "^4.4.0",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.14.0",
+    "mammoth": "^1.12.0",
     "next": "16.2.4",
     "next-auth": "^5.0.0-beta.31",
     "next-themes": "^0.4.6",
+    "openai": "^6.45.0",
     "pg": "^8.20.0",
     "qrcode.react": "^4.2.0",
     "react": "19.2.4",

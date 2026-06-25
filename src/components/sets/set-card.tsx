@@ -72,10 +72,14 @@ export function SetCard({
   }
 
   return (
-    <Link
-      href={`/dashboard/sets/${set.id}`}
-      className="group bg-white rounded-2xl overflow-hidden shadow-[0_4px_0_#d1d5db] border border-gray-200 hover:shadow-[0_6px_0_#d1d5db] hover:-translate-y-0.5 transition-all block"
-    >
+    <div className="group relative bg-white rounded-2xl overflow-hidden shadow-[0_4px_0_#d1d5db] border border-gray-200 hover:shadow-[0_6px_0_#d1d5db] hover:-translate-y-0.5 transition-all">
+      {/* Link phủ toàn bộ card để điều hướng (tránh lồng <a> trong <a>) */}
+      <Link
+        href={`/dashboard/sets/${set.id}`}
+        aria-label={set.title}
+        className="absolute inset-0 z-[1]"
+      />
+
       {/* Cover */}
       <div className="h-32 bg-[#4ecdc4] flex items-center justify-center relative overflow-hidden">
         {set.coverImage ? (
@@ -88,7 +92,7 @@ export function SetCard({
           <button
             onClick={handleFavorite}
             disabled={toggling}
-            className={`absolute top-2 right-2 p-1.5 rounded-full transition-all shadow-md ${
+            className={`absolute top-2 right-2 z-[2] p-1.5 rounded-full transition-all shadow-md ${
               favorited
                 ? "bg-red-500 text-white"
                 : "bg-white/80 text-gray-400 hover:text-red-400"
@@ -125,12 +129,11 @@ export function SetCard({
         )}
 
         {(showEdit || showDelete) && (
-          <div className="flex items-center gap-2 mt-3" onClick={(e) => e.preventDefault()}>
+          <div className="relative z-[2] flex items-center gap-2 mt-3">
             {showEdit && (
               <Link
                 href={`/dashboard/sets/${set.id}/edit`}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-[#4ecdc4] hover:bg-[#45b7af] text-white font-bold text-sm rounded-lg transition-colors shadow-[0_3px_0_#38a89d]"
-                onClick={(e) => e.stopPropagation()}
               >
                 <Edit3 className="h-3.5 w-3.5" />
                 Edit
@@ -148,6 +151,6 @@ export function SetCard({
           </div>
         )}
       </div>
-    </Link>
+    </div>
   );
 }

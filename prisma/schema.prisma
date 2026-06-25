@@ -20,6 +20,9 @@ model User {
   folders      Folder[]
   gameSessions GameSession[]
   favorites    Favorite[]
+
+  sourceDocuments SourceDocument[]
+  generationJobs  GenerationJob[]
 }
 
 model QuestionSet {
@@ -177,4 +180,73 @@ model PlayerAnswer {
 
   @@unique([playerId, questionId])
   @@index([playerId])
+}
+
+// ── AI Question Generator ────────────────────────────────────
+// Upload tài liệu nghiệp vụ → sinh đề bằng GLM 5.2 → review → publish
+
+model SourceDocument {
+  id         String    @id @default(cuid())
+  filename   String
+  mimeType   String
+  storageUrl String?
+  rawText    String
+  status     DocStatus @default(UPLOADED)
+  createdAt  DateTime  @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  chunks DocumentChunk[]
+  jobs   GenerationJob[]
+
+  @@index([userId])
+}
+
+model DocumentChunk {
+  id      String @id @default(cuid())
+  order   Int
+  content String
+
+  documentId String
+  document   SourceDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+}
+
+model GenerationJob {
+  id            String    @id @default(cuid())
+  config        Json
+  status        JobStatus @default(QUEUED)
+  progress      Int       @default(0)
+  error         String?
+  draft         Json?
+  questionSetId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  documentId String
+  document   SourceDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([documentId])
+  @@index([status])
+}
+
+enum DocStatus {
+  UPLOADED
+  PARSED
+  CHUNKED
+  FAILED
+}
+
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  REVIEW
+  DONE
+  FAILED
 }
