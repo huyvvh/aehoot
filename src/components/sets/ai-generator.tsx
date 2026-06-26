@@ -53,8 +53,9 @@ export function AIGenerator() {
   const [phase, setPhase] = useState<"config" | "review">("config");
 
   // config
-  const [filename, setFilename] = useState<string | null>(null);
-  const [documentId, setDocumentId] = useState<string | null>(null);
+  const [docs, setDocs] = useState<
+    { id: string; filename: string; chunks: number }[]
+  >([]);
   const [uploading, setUploading] = useState(false);
   const [numQuestions, setNumQuestions] = useState(10);
   const [difficulty, setDifficulty] = useState("MIXED");
@@ -70,33 +71,44 @@ export function AIGenerator() {
   const [publishing, setPublishing] = useState(false);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/documents", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (data.success) {
-        setDocumentId(data.data.id);
-        setFilename(data.data.filename);
-        toast.success(`Đã tải lên (${data.data._count.chunks} đoạn)`);
-      } else {
-        toast.error(data.error?.message ?? "Tải lên thất bại");
+      // Tải từng file một (rồi gộp vào danh sách) để mỗi file là một tài liệu nguồn.
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch("/api/documents", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        if (data.success) {
+          setDocs((prev) => [
+            ...prev,
+            {
+              id: data.data.id,
+              filename: data.data.filename,
+              chunks: data.data._count.chunks,
+            },
+          ]);
+          toast.success(`Đã tải "${data.data.filename}" (${data.data._count.chunks} đoạn)`);
+        } else {
+          toast.error(`${file.name}: ${data.error?.message ?? "tải lên thất bại"}`);
+        }
       }
     } catch {
       toast.error("Lỗi kết nối khi tải file");
     } finally {
       setUploading(false);
+      // Cho phép chọn lại đúng file vừa tải.
+      if (fileRef.current) fileRef.current.value = "";
     }
   }
 
   async function handleGenerate() {
-    if (!documentId) return;
+    if (docs.length === 0) return;
     setGenerating(true);
     setProgress(0);
     try {
@@ -104,7 +116,7 @@ export function AIGenerator() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          documentId,
+          documentIds: docs.map((d) => d.id),
           config: { numQuestions, difficulty, domainHint: domainHint || undefined },
         }),
       });
@@ -138,7 +150,9 @@ export function AIGenerator() {
           const draft = job.draft?.questions ?? [];
           setQuestions(draft);
           setJobId(job.id);
-          setTitle(filename?.replace(/\.[^.]+$/, "") ?? "Bộ câu hỏi AI");
+          setTitle(
+            docs[0]?.filename.replace(/\.[^.]+$/, "") ?? "Bộ câu hỏi AI"
+          );
           setPhase("review");
           setGenerating(false);
           toast.success(`Đã sinh ${draft.length} câu hỏi — hãy review trước khi lưu`);
@@ -270,53 +284,68 @@ export function AIGenerator() {
           Sinh đề bằng AI
         </h1>
         <p className="text-gray-500 mb-6">
-          Tải tài liệu nghiệp vụ (.docx, .xlsx) — AI sẽ sinh câu hỏi, bạn duyệt
-          trước khi lưu.
+          Tải một hoặc nhiều tài liệu nghiệp vụ (.docx, .xlsx) — AI sẽ sinh câu
+          hỏi từ toàn bộ tài liệu, bạn duyệt trước khi lưu.
         </p>
 
         <div className="bg-white/80 rounded-2xl p-6 shadow-sm space-y-5">
           {/* Upload */}
           <div>
             <label className="block text-sm font-black text-[#3a3a5c] mb-1.5">
-              Tài liệu nguồn
+              Tài liệu nguồn{docs.length > 0 ? ` (${docs.length})` : ""}
             </label>
-            {documentId ? (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-[#4ecdc4]/10 border-2 border-[#4ecdc4]">
-                <FileText className="h-5 w-5 text-[#38a89d]" />
-                <span className="font-bold text-[#3a3a5c] flex-1 truncate">
-                  {filename}
-                </span>
-                <button
-                  onClick={() => {
-                    setDocumentId(null);
-                    setFilename(null);
-                  }}
-                  className="text-sm font-bold text-gray-500 hover:text-red-500"
-                >
-                  Đổi
-                </button>
+            {docs.length > 0 && (
+              <div className="space-y-2 mb-2">
+                {docs.map((d) => (
+                  <div
+                    key={d.id}
+                    className="flex items-center gap-3 p-3 rounded-lg bg-[#4ecdc4]/10 border-2 border-[#4ecdc4]"
+                  >
+                    <FileText className="h-5 w-5 text-[#38a89d] shrink-0" />
+                    <span className="font-bold text-[#3a3a5c] flex-1 truncate">
+                      {d.filename}
+                    </span>
+                    <span className="text-xs text-gray-400 shrink-0">
+                      {d.chunks} đoạn
+                    </span>
+                    <button
+                      onClick={() =>
+                        setDocs((prev) => prev.filter((x) => x.id !== d.id))
+                      }
+                      className="text-sm font-bold text-gray-500 hover:text-red-500 shrink-0"
+                    >
+                      Bỏ
+                    </button>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <button
-                onClick={() => fileRef.current?.click()}
-                disabled={uploading}
-                className="w-full flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-[#7c5cbf] transition-colors"
-              >
-                {uploading ? (
-                  <Loader2 className="h-8 w-8 text-[#7c5cbf] animate-spin" />
-                ) : (
-                  <Upload className="h-8 w-8 text-gray-400" />
-                )}
-                <span className="font-bold text-[#3a3a5c]">
-                  {uploading ? "Đang đọc tài liệu..." : "Chọn file .docx hoặc .xlsx"}
-                </span>
-                <span className="text-xs text-gray-400">Tối đa 10MB</span>
-              </button>
             )}
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="w-full flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-[#7c5cbf] transition-colors"
+            >
+              {uploading ? (
+                <Loader2 className="h-7 w-7 text-[#7c5cbf] animate-spin" />
+              ) : (
+                <Upload className="h-7 w-7 text-gray-400" />
+              )}
+              <span className="font-bold text-[#3a3a5c]">
+                {uploading
+                  ? "Đang đọc tài liệu..."
+                  : docs.length > 0
+                    ? "Thêm tài liệu khác"
+                    : "Chọn file .docx hoặc .xlsx"}
+              </span>
+              <span className="text-xs text-gray-400">
+                Có thể chọn nhiều file · tối đa 10MB/file
+              </span>
+            </button>
             <input
               ref={fileRef}
               type="file"
               accept=".docx,.xlsx"
+              multiple
               className="hidden"
               onChange={handleFileChange}
             />
@@ -394,7 +423,7 @@ export function AIGenerator() {
 
           <button
             onClick={handleGenerate}
-            disabled={!documentId || generating}
+            disabled={docs.length === 0 || generating}
             className="w-full flex items-center justify-center gap-2 py-3.5 bg-[#7c5cbf] hover:bg-[#6b4da8] disabled:bg-gray-300 text-white font-extrabold text-lg rounded-lg transition-colors shadow-[0_4px_0_#5e3d9e] disabled:shadow-[0_4px_0_#aaa]"
           >
             {generating ? (

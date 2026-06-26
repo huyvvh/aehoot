@@ -37,15 +37,35 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return apiError(parsed.error.issues[0].message, "VALIDATION_ERROR");
   }
-  const { documentId } = parsed.data;
   const config = parsed.data.config ?? generationConfigSchema.parse({});
 
-  const doc = await prisma.sourceDocument.findFirst({
-    where: { id: documentId, userId: user.userId },
+  // Gom danh sách tài liệu (1 hoặc nhiều), giữ thứ tự tải lên.
+  const requestedIds =
+    parsed.data.documentIds ??
+    (parsed.data.documentId ? [parsed.data.documentId] : []);
+
+  const docs = await prisma.sourceDocument.findMany({
+    where: { id: { in: requestedIds }, userId: user.userId },
     include: { chunks: { orderBy: { order: "asc" } } },
+    orderBy: { createdAt: "asc" },
   });
-  if (!doc) return apiError("Tài liệu không tồn tại", "DOC_NOT_FOUND", 404);
-  if (doc.chunks.length === 0) {
+  if (docs.length === 0) {
+    return apiError("Tài liệu không tồn tại", "DOC_NOT_FOUND", 404);
+  }
+
+  // Đan xen chunk giữa các tài liệu (round-robin): doc1[0], doc2[0], doc1[1]...
+  // Nhờ vậy khi generator giới hạn số chunk, mọi tài liệu đều được phủ thay vì
+  // chỉ rút từ tài liệu đầu. Mỗi chunk vẫn giữ id riêng → grounding/trích dẫn
+  // vẫn truy đúng tài liệu nguồn của từng câu.
+  const chunks: GenChunk[] = [];
+  const maxLen = Math.max(...docs.map((d) => d.chunks.length));
+  for (let i = 0; i < maxLen; i++) {
+    for (const d of docs) {
+      const c = d.chunks[i];
+      if (c) chunks.push({ id: c.id, content: c.content });
+    }
+  }
+  if (chunks.length === 0) {
     return apiError("Tài liệu chưa có nội dung để sinh đề", "DOC_EMPTY", 422);
   }
 
@@ -64,16 +84,12 @@ export async function POST(req: NextRequest) {
   const job = await prisma.generationJob.create({
     data: {
       userId: user.userId,
-      documentId,
+      // FK trỏ tài liệu đầu tiên (đại diện); chunk đã gộp đủ các tài liệu.
+      documentId: docs[0].id,
       config,
       status: "PROCESSING",
     },
   });
-
-  const chunks: GenChunk[] = doc.chunks.map((c) => ({
-    id: c.id,
-    content: c.content,
-  }));
 
   // Chạy nền (không await): server custom (tsx server.ts) là tiến trình
   // dài hạn nên promise nổi vẫn tiếp tục. Client poll tiến độ qua GET job.

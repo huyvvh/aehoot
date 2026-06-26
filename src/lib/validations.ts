@@ -59,10 +59,17 @@ export const generationConfigSchema = z.object({
   domainHint: z.string().max(500).optional(),
 });
 
-export const createGenerationSchema = z.object({
-  documentId: z.string().min(1, "Thiếu documentId"),
-  config: generationConfigSchema.optional(),
-});
+export const createGenerationSchema = z
+  .object({
+    // Hỗ trợ 1 tài liệu (cũ) hoặc nhiều tài liệu.
+    documentId: z.string().min(1).optional(),
+    documentIds: z.array(z.string().min(1)).min(1).max(10).optional(),
+    config: generationConfigSchema.optional(),
+  })
+  .refine(
+    (d) => !!d.documentId || (d.documentIds?.length ?? 0) > 0,
+    { message: "Thiếu tài liệu nguồn" }
+  );
 
 export const draftQuestionSchema = z.object({
   text: z.string().min(1, "Câu hỏi không được trống"),
