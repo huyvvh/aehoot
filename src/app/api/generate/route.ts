@@ -6,6 +6,7 @@ import {
   generationConfigSchema,
 } from "@/lib/validations";
 import { generateQuestions, type GenChunk } from "@/lib/ai/generator";
+import { chunkIdsWithChanges } from "@/lib/ai/docdiff";
 import { Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
   // Nhờ vậy khi generator giới hạn số chunk, mọi tài liệu đều được phủ thay vì
   // chỉ rút từ tài liệu đầu. Mỗi chunk vẫn giữ id riêng → grounding/trích dẫn
   // vẫn truy đúng tài liệu nguồn của từng câu.
-  const chunks: GenChunk[] = [];
+  let chunks: GenChunk[] = [];
   const maxLen = Math.max(...docs.map((d) => d.chunks.length));
   for (let i = 0; i < maxLen; i++) {
     for (const d of docs) {
@@ -67,6 +68,26 @@ export async function POST(req: NextRequest) {
   }
   if (chunks.length === 0) {
     return apiError("Tài liệu chưa có nội dung để sinh đề", "DOC_EMPTY", 422);
+  }
+
+  // Chế độ "chỉ sinh từ phần thay đổi": lọc giữ các chunk MỚI/ĐÃ SỬA so với bản cũ.
+  if (parsed.data.comparedToDocumentId) {
+    const oldDoc = await prisma.sourceDocument.findFirst({
+      where: { id: parsed.data.comparedToDocumentId, userId: user.userId },
+      select: { rawText: true },
+    });
+    if (!oldDoc) {
+      return apiError("Tài liệu so sánh không tồn tại", "COMPARE_NOT_FOUND", 404);
+    }
+    const changedIds = new Set(chunkIdsWithChanges(chunks, oldDoc.rawText));
+    chunks = chunks.filter((c) => changedIds.has(c.id));
+    if (chunks.length === 0) {
+      return apiError(
+        "Không phát hiện nội dung mới so với bản cũ",
+        "NO_CHANGES",
+        422
+      );
+    }
   }
 
   // Chặn chạy song song nhiều job/người dùng để kiểm soát chi phí.

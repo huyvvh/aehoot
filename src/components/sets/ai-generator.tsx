@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -57,6 +57,28 @@ export function AIGenerator() {
     { id: string; filename: string; chunks: number }[]
   >([]);
   const [uploading, setUploading] = useState(false);
+  // Danh sách mọi tài liệu đã upload (để chọn "bản cũ" khi so sánh).
+  const [allDocs, setAllDocs] = useState<{ id: string; filename: string }[]>([]);
+  const [comparedToId, setComparedToId] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/documents");
+        const data = await res.json();
+        if (data.success) {
+          setAllDocs(
+            data.data.map((d: { id: string; filename: string }) => ({
+              id: d.id,
+              filename: d.filename,
+            }))
+          );
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [docs.length]);
   const [numQuestions, setNumQuestions] = useState(10);
   const [difficulty, setDifficulty] = useState("MIXED");
   const [domainHint, setDomainHint] = useState("");
@@ -117,6 +139,7 @@ export function AIGenerator() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           documentIds: docs.map((d) => d.id),
+          comparedToDocumentId: comparedToId || undefined,
           config: { numQuestions, difficulty, domainHint: domainHint || undefined },
         }),
       });
@@ -350,6 +373,35 @@ export function AIGenerator() {
               onChange={handleFileChange}
             />
           </div>
+
+          {/* So sánh phiên bản: chỉ sinh từ phần mới */}
+          {docs.length > 0 &&
+            allDocs.some((d) => !docs.find((x) => x.id === d.id)) && (
+              <div>
+                <label className="block text-sm font-black text-[#3a3a5c] mb-1.5">
+                  Chỉ sinh câu từ phần MỚI so với bản cũ (tùy chọn)
+                </label>
+                <select
+                  value={comparedToId}
+                  onChange={(e) => setComparedToId(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-lg border-2 border-[#4ecdc4] focus:outline-none text-[#3a3a5c] font-medium bg-white"
+                >
+                  <option value="">— Không so sánh (sinh từ toàn bộ) —</option>
+                  {allDocs
+                    .filter((d) => !docs.find((x) => x.id === d.id))
+                    .map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.filename}
+                      </option>
+                    ))}
+                </select>
+                {comparedToId && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Bỏ qua nội dung trùng bản cũ — chỉ sinh từ phần thêm/đã sửa.
+                  </p>
+                )}
+              </div>
+            )}
 
           {/* Số câu */}
           <div>

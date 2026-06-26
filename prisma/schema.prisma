@@ -65,6 +65,9 @@ model Question {
   sourceQuote   String?
   sourceChunkId String?
 
+  // Gắn cờ khi tài liệu nguồn cập nhật → nội dung câu có thể đã lỗi thời, cần rà soát.
+  needsReview Boolean @default(false)
+
   questionSetId String
   questionSet   QuestionSet @relation(fields: [questionSetId], references: [id], onDelete: Cascade)
 

@@ -64,6 +64,8 @@ export const createGenerationSchema = z
     // Hỗ trợ 1 tài liệu (cũ) hoặc nhiều tài liệu.
     documentId: z.string().min(1).optional(),
     documentIds: z.array(z.string().min(1)).min(1).max(10).optional(),
+    // Nếu có: chỉ sinh từ phần MỚI/ĐÃ SỬA so với tài liệu này (bản cũ).
+    comparedToDocumentId: z.string().min(1).optional(),
     config: generationConfigSchema.optional(),
   })
   .refine(

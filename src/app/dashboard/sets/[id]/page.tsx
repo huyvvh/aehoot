@@ -29,6 +29,7 @@ interface Question {
   timeLimit: number;
   points: number;
   order: number;
+  needsReview?: boolean;
   answers: Answer[];
 }
 
@@ -253,9 +254,14 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
               </span>
               <div className="flex-1">
                 <p className="font-bold text-[#3a3a5c] text-base">{q.text}</p>
-                <div className="flex gap-3 mt-1 text-xs text-gray-400 font-medium">
+                <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-gray-400 font-medium">
                   <span>⏱ {q.timeLimit}s</span>
                   <span>⭐ {q.points} điểm</span>
+                  {q.needsReview && (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold">
+                      ⚠ Cần rà soát (tài liệu nguồn đã đổi)
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

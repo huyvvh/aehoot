@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { chunkText } from "./chunk";
 import { redactPII } from "./pii";
 import { overlapRatio, checkGrounding } from "./validate";
+import { splitSentences, diffSentences, chunkIdsWithChanges } from "./docdiff";
 
 test("chunkText: trả về 1 chunk khi text ngắn", () => {
   const chunks = chunkText("Một đoạn ngắn.");
@@ -62,4 +63,29 @@ test("checkGrounding: quote khớp tài liệu → grounded", () => {
   const chunk = "Hạn mức rút tiền mặt tối đa mỗi ngày là 100 triệu đồng.";
   const r = checkGrounding("Hạn mức rút tiền mặt tối đa mỗi ngày", chunk);
   assert.equal(r.grounded, true);
+});
+
+test("splitSentences: tách câu và bỏ câu quá ngắn", () => {
+  const s = splitSentences("Điều khoản một về lãi suất.\nĐiều khoản hai về phí.");
+  assert.equal(s.length, 2);
+});
+
+test("diffSentences: phát hiện câu mới và câu giữ nguyên", () => {
+  const oldText = "Lãi suất cho vay tối đa là 20 phần trăm mỗi năm.";
+  const newText =
+    "Lãi suất cho vay tối đa là 20 phần trăm mỗi năm. Phí trả nợ trước hạn là 2 phần trăm.";
+  const d = diffSentences(oldText, newText);
+  assert.equal(d.unchanged, 1);
+  assert.equal(d.added.length, 1);
+});
+
+test("chunkIdsWithChanges: chunk nội dung mới bị coi là đã đổi", () => {
+  const chunks = [
+    { id: "a", content: "Lãi suất cho vay tối đa là 20 phần trăm mỗi năm." },
+    { id: "b", content: "Quy định hoàn toàn mới về bảo hiểm khoản vay tín chấp." },
+  ];
+  const oldText = "Lãi suất cho vay tối đa là 20 phần trăm mỗi năm.";
+  const changed = chunkIdsWithChanges(chunks, oldText);
+  assert.ok(changed.includes("b"));
+  assert.ok(!changed.includes("a"));
 });

@@ -9,7 +9,17 @@ import {
   ArrowRight,
   AlertTriangle,
   RefreshCw,
+  GitCompare,
 } from "lucide-react";
+
+interface DiffData {
+  summary: { added: number; removed: number; changed: number; unchanged: number };
+  diff: {
+    added: string[];
+    removed: string[];
+    changed: { old: string; new: string }[];
+  };
+}
 
 interface DocItem {
   id: string;
@@ -35,6 +45,8 @@ export default function DocumentsPage() {
     {}
   );
   const [maintaining, setMaintaining] = useState(false);
+  const [diff, setDiff] = useState<Record<string, DiffData>>({});
+  const [diffLoadingId, setDiffLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDocs();
@@ -97,8 +109,9 @@ export default function DocumentsPage() {
       });
       const data = await res.json();
       if (data.success) {
+        const { staledCount, flaggedQuestions } = data.data;
         toast.success(
-          `Đã đánh dấu thay thế. ${data.data.staledCount} giải thích cần cập nhật.`
+          `Đã đánh dấu thay thế. ${staledCount} giải thích & ${flaggedQuestions} câu hỏi cần rà soát.`
         );
         fetchDocs();
       } else {
@@ -106,6 +119,28 @@ export default function DocumentsPage() {
       }
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function loadDiff(oldId: string) {
+    const newId = supersedeTarget[oldId];
+    if (!newId) {
+      toast.error("Chọn tài liệu (bản mới) để so sánh");
+      return;
+    }
+    setDiffLoadingId(oldId);
+    try {
+      const res = await fetch(
+        `/api/documents/diff?oldId=${oldId}&newId=${newId}`
+      );
+      const data = await res.json();
+      if (data.success) {
+        setDiff((prev) => ({ ...prev, [oldId]: data.data }));
+      } else {
+        toast.error(data.error?.message ?? "So sánh thất bại");
+      }
+    } finally {
+      setDiffLoadingId(null);
     }
   }
 
@@ -295,6 +330,18 @@ export default function DocumentsPage() {
                           ))}
                         </select>
                         <button
+                          onClick={() => loadDiff(d.id)}
+                          disabled={diffLoadingId === d.id || !supersedeTarget[d.id]}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-sm rounded-xl transition-colors disabled:opacity-50"
+                        >
+                          {diffLoadingId === d.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <GitCompare className="h-4 w-4" />
+                          )}
+                          So sánh
+                        </button>
+                        <button
                           onClick={() => supersede(d.id)}
                           disabled={savingId === d.id}
                           className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-sm rounded-xl transition-colors disabled:opacity-50"
@@ -306,11 +353,92 @@ export default function DocumentsPage() {
                     )}
                   </div>
                 )}
+
+                {diff[d.id] && <DiffPanel data={diff[d.id]} />}
               </div>
             );
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function DiffPanel({ data }: { data: DiffData }) {
+  const { summary, diff } = data;
+  return (
+    <div className="mt-3 border-t border-gray-100 pt-3">
+      <div className="flex flex-wrap gap-2 mb-3 text-xs font-bold">
+        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+          +{summary.added} mới
+        </span>
+        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+          {summary.changed} đã sửa
+        </span>
+        <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+          −{summary.removed} đã xóa
+        </span>
+        <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+          {summary.unchanged} giữ nguyên
+        </span>
+      </div>
+
+      {diff.added.length > 0 && (
+        <DiffList
+          title="Mới"
+          cls="text-emerald-700 border-emerald-300"
+          items={diff.added}
+        />
+      )}
+      {diff.changed.length > 0 && (
+        <div className="mb-2">
+          <p className="text-xs font-bold text-amber-700 mb-1">Đã sửa</p>
+          <div className="space-y-1.5">
+            {diff.changed.slice(0, 15).map((c, i) => (
+              <div key={i} className="text-xs border-l-2 border-amber-300 pl-2">
+                <p className="text-gray-400 line-through line-clamp-2">{c.old}</p>
+                <p className="text-[#3a3a5c] line-clamp-2">{c.new}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {diff.removed.length > 0 && (
+        <DiffList
+          title="Đã xóa"
+          cls="text-red-700 border-red-300"
+          items={diff.removed}
+        />
+      )}
+    </div>
+  );
+}
+
+function DiffList({
+  title,
+  cls,
+  items,
+}: {
+  title: string;
+  cls: string;
+  items: string[];
+}) {
+  return (
+    <div className="mb-2">
+      <p className={`text-xs font-bold mb-1 ${cls.split(" ")[0]}`}>{title}</p>
+      <div className="space-y-1">
+        {items.slice(0, 15).map((s, i) => (
+          <p
+            key={i}
+            className={`text-xs text-gray-600 border-l-2 pl-2 line-clamp-2 ${cls.split(" ")[1]}`}
+          >
+            {s}
+          </p>
+        ))}
+        {items.length > 15 && (
+          <p className="text-xs text-gray-400">… và {items.length - 15} câu nữa</p>
+        )}
+      </div>
     </div>
   );
 }
